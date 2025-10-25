@@ -4,7 +4,7 @@
 **Chief Investigator:** [Name, Role, School] | **Email:** [email] | **Tel:** [phone]  
 **Supervisor:** [Name] | **Email:** [email]  
 **Ethics Approval:** UQ HREC [HREC‑XXXX]  
-**Complaints/Independent Advice:** UQ Office of Research Ethics — **Email:** [ethics@uq.edu.au] **Tel:** [xxx‑xxx]  
+**Complaints/Independent Advice:** UQ Office of Research Ethics — **Email:** [xxx] **Tel:** [xxx‑xxx]  
 
 ---
 
