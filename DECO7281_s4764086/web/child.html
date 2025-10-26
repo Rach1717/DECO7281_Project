@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Child page</title>
+  <style>
+    :root { --bd:#e5e7eb; --me:#e8f0fe; --ai:#f1f3f4; }
+    *{box-sizing:border-box}
+    body{font:16px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial;margin:0;padding:16px;background:#fff}
+    h2{margin:0 0 12px}
+    .row{display:flex;gap:8px;margin:8px 0}
+    input,textarea,button{font:inherit}
+    input,textarea{width:100%;padding:10px;border:1px solid var(--bd);border-radius:10px}
+    button{padding:10px 14px;border:1px solid var(--bd);border-radius:10px;background:#fff;cursor:pointer}
+    button[disabled]{opacity:.6;cursor:not-allowed}
+    ul{list-style:none;padding:8px;height:48vh;overflow:auto;border:1px solid var(--bd);border-radius:12px;margin:8px 0}
+    li{padding:8px 12px;margin:8px;border-radius:12px;max-width:78%}
+    li.me{background:var(--me);margin-left:auto}
+    li.ai{background:var(--ai)}
+    small.hint{opacity:.7}
+  </style>
+</head>
+<body>
+  <h2>Child page</h2>
+
+  <div class="row">
+    <input id="childId" placeholder="your ID" />
+    <button id="learnBtn">update tone</button>
+  </div>
+
+  <small class="hint">sample</small>
+  <textarea id="samples" rows="5" placeholder="eg: &#10;Hello grandma! I'll call you again tonight~ &#10; It's a bit cold today, so remember to dress warmly when going out~"></textarea>
+
+  <small class="hint">Fact cards</small>
+  <textarea id="facts" rows="3" placeholder='eg: {"Nickname":"DingDing", "City":"Brisbane", "Phone Time":"After 20:00 on working days"}'></textarea>
+
+  <ul id="log"></ul>
+  <div class="row">
+    <input id="msg" placeholder="Chat with AI for tones learning" />
+    <button id="send">Send</button>
+  </div>
+
+  <script type="module">
+    import { postJSON } from "./js/api.js";
+    import { addBubble } from "./js/ui.js";
+
+    const log = document.querySelector("#log");
+    const learnBtn = document.querySelector("#learnBtn");
+    const sendBtn = document.querySelector("#send");
+    const msgInput = document.querySelector("#msg");
+    const childInput = document.querySelector("#childId");
+    const factsInput = document.querySelector("#facts");
+    const samplesInput = document.querySelector("#samples");
+
+    function scrollBottom(){ log.scrollTop = log.scrollHeight; }
+
+    async function onLearn(){
+      const childId = (childInput.value || "Child").trim();
+      const texts = (samplesInput.value || "").split("\n").map(s=>s.trim()).filter(Boolean);
+      const samples = texts.map(t => ({ from:"me", text:t }));
+      let facts = {};
+      try {
+        facts = factsInput.value.trim() ? JSON.parse(factsInput.value) : {};
+      } catch(e){
+        alert("❌ The fact card is not a valid JSON. Please correct it and try again.");
+        return;
+      }
+      learnBtn.disabled = true; learnBtn.textContent = "Learning…";
+      try {
+        const { styleGuide } = await postJSON("/style/learn", { childId, samples, facts });
+        alert("✅ tone updated: \n\n" + styleGuide);
+      } catch(err){
+        alert("❌ failure tone updated: \n" + (err.message || err));
+      } finally {
+        learnBtn.disabled = false; learnBtn.textContent = "update tone";
+      }
+    }
+
+    async function onSend(){
+      const text = msgInput.value.trim();
+      if(!text) return;
+      addBubble(log, "me", text); scrollBottom();
+      sendBtn.disabled = true; sendBtn.textContent = "Sending…";
+      try {
+        const { reply } = await postJSON("/child/message", { text });
+        addBubble(log, "ai", reply); scrollBottom();
+        msgInput.value = "";
+      } catch(err){
+        addBubble(log, "ai", "error: child page chat failure:" + (err.message || err)); scrollBottom();
+      } finally {
+        sendBtn.disabled = false; sendBtn.textContent = "Send";
+      }
+    }
+
+    learnBtn.onclick = onLearn;
+    sendBtn.onclick = onSend;
+    msgInput.addEventListener("keydown", e => {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); }
+    });
+  </script>
+</body>
+</html>

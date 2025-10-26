@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Elder page</title>
+  <style>
+    :root { --bd:#e5e7eb; --me:#fff3e0; --ai:#e8f5e9; }
+    *{box-sizing:border-box}
+    body{font:16px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial;margin:0;padding:16px;background:#fff}
+    h2{margin:0 0 12px}
+    .row{display:flex;gap:8px;margin:8px 0}
+    input,button{font:inherit}
+    input{width:100%;padding:10px;border:1px solid var(--bd);border-radius:10px}
+    button{padding:10px 14px;border:1px solid var(--bd);border-radius:10px;background:#fff;cursor:pointer}
+    button[disabled]{opacity:.6;cursor:not-allowed}
+    ul{list-style:none;padding:8px;height:70vh;overflow:auto;border:1px solid var(--bd);border-radius:12px;margin:8px 0}
+    li{padding:8px 12px;margin:8px;border-radius:12px;max-width:78%}
+    li.me{background:var(--me);margin-left:auto}
+    li.ai{background:var(--ai)}
+  </style>
+</head>
+<body>
+  <h2>Elder page</h2>
+
+  <div class="row">
+    <input id="childId" placeholder="Child ID (consistent with the child end)"/>
+  </div>
+  <ul id="log"></ul>
+  <div class="row">
+    <input id="msg" placeholder="Talk sonthing with your kids…" />
+    <button id="send">Send</button>
+  </div>
+
+  <script type="module">
+    import { postJSON } from "./js/api.js";
+    import { addBubble } from "./js/ui.js";
+
+    const log = document.querySelector("#log");
+    const sendBtn = document.querySelector("#send");
+    const msgInput = document.querySelector("#msg");
+    const childInput = document.querySelector("#childId");
+
+    function scrollBottom(){ log.scrollTop = log.scrollHeight; }
+
+    async function onSend(){
+      const text = msgInput.value.trim();
+      const childId = (childInput.value || "Child").trim();
+      if(!text) return;
+      addBubble(log, "me", text); scrollBottom();
+      sendBtn.disabled = true; sendBtn.textContent = "Sending…";
+      try {
+        const { reply } = await postJSON("/elder/message", { childId, text });
+        addBubble(log, "ai", reply); scrollBottom();
+        msgInput.value = "";
+      } catch(err){
+        const msg = String(err?.message || err);
+        if (msg.includes("No style learned")) {
+          addBubble(log, "ai", "Hint: The tone for this child has not been set yet. Please first enter the same childID and update the tone.");
+        } else {
+          addBubble(log, "ai", "error: failure elder request: " + msg);
+        }
+        scrollBottom();
+      } finally {
+        sendBtn.disabled = false; sendBtn.textContent = "Send";
+      }
+    }
+
+    sendBtn.onclick = onSend;
+    msgInput.addEventListener("keydown", e => {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); }
+    });
+  </script>
+</body>
+</html>
