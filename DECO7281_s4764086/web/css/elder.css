@@ -1,0 +1,7 @@
+.top-left{
+  display:flex; align-items:center; gap:14px;
+}
+
+.mode{
+  display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center; margin:12px 0;
+}

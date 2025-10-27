@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Child App · Train Tone & Chat</title>
+
+  <!-- unified styles -->
+  <link rel="stylesheet" href="/css/vars.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/child.css">
+</head>
+<body class="page-child">
+  <div class="wrap child-wrap">
+    <!-- Header -->
+    <div class="top">
+      <div class="top-left">
+        <a class="homeBtn" href="./index.html">Home</a>
+        <h2>Child App</h2>
+      </div>
+    </div>
+
+    <!-- Two-column grid -->
+    <div class="child-grid">
+      <!-- LEFT: Tone Trainer -->
+      <aside class="trainer card">
+        <h3 class="card-title">Tone Trainer</h3>
+
+        <label class="lbl" for="childId">childId</label>
+        <input id="childId" placeholder="e.g. Dengdeng" />
+
+        <div class="sp"></div>
+
+        <label class="lbl">Chat Samples <span class="muted">(one line per message)</span></label>
+        <div class="row space-between">
+          <button class="btn sm" id="importBtn">Import .txt</button>
+          <span id="sampleCount" class="small">0 lines</span>
+        </div>
+        <textarea id="samples" rows="8" placeholder="Hi grandma! I'll call you tonight~&#10;It's a bit chilly; please wear something warm~"></textarea>
+
+        <label class="lbl" style="margin-top:14px">Facts Card (JSON)</label>
+        <textarea id="facts" class="monoinput" rows="5" placeholder='{"Nickname":"Dengdeng","City":"Brisbane","CallTime":"Weekdays 20:00-21:00"}'></textarea>
+
+        <div class="row" style="margin-top:14px">
+          <button class="sendBtn" id="learnBtn">Sync Tone</button>
+        </div>
+        <p class="small muted">Teach tone first, then chat on the right.</p>
+
+        <input type="file" id="file" accept=".txt,.text" hidden />
+      </aside>
+
+      <!-- RIGHT: Chats (tabs) -->
+      <section class="chat-area">
+        <!-- tabs -->
+        <div class="seg ai" id="tabSeg" role="tablist" aria-label="Chat mode">
+          <div class="labels">
+            <div class="aiTxt" id="tabAI" role="tab" aria-selected="true" aria-controls="aiPanel">AI</div>
+            <div class="realTxt" id="tabReal" role="tab" aria-selected="false" aria-controls="realPanel">Real</div>
+          </div>
+        </div>
+
+        <!-- AI panel -->
+        <div id="aiPanel" class="card">
+          <h3 class="card-title">AI Tone Chat</h3>
+          <ul id="log" class="log" aria-live="polite"></ul>
+          <div id="reasonWrap" class="reason"></div>
+          <div id="thinking" class="thinking">Thinking…</div>
+          <div class="composer">
+            <input id="msg" placeholder="Say something to the AI (learns your tone)" />
+            <button class="sendBtn" id="send">Send</button>
+          </div>
+          <span class="small muted">Press Enter to send</span>
+        </div>
+
+        <!-- Real panel -->
+        <div id="realPanel" class="card" style="display:none">
+          <h3 class="card-title">Real Chat with Elder</h3>
+          <div class="notice warn" id="elderBanner" style="display:none;">New message from Elder · click here to focus</div>
+          <ul id="elog" class="log" aria-live="polite"></ul>
+          <div class="composer">
+            <input id="emsg" placeholder="Type to Elder…" />
+            <button class="sendBtn" id="esend">Send</button>
+          </div>
+          <span class="small muted">This is a real person chat. Keep it simple and kind.</span>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script type="module">
+    import { postJSON } from "./js/api.js";
+    import { addBubble } from "./js/ui.js";
+
+    // ====== trainer refs
+    const learnBtn = document.querySelector("#learnBtn");
+    const childInput   = document.querySelector("#childId");
+    const factsInput   = document.querySelector("#facts");
+    const samplesInput = document.querySelector("#samples");
+    const sampleCount  = document.querySelector("#sampleCount");
+    const importBtn    = document.querySelector("#importBtn");
+    const fileInput    = document.querySelector("#file");
+
+    // ====== tabs
+    const seg = document.querySelector("#tabSeg");
+    const tabAI = document.querySelector("#tabAI");
+    const tabReal = document.querySelector("#tabReal");
+    const aiPanel = document.querySelector("#aiPanel");
+    const realPanel = document.querySelector("#realPanel");
+
+    // ====== ai chat
+    const log = document.querySelector("#log");
+    const sendBtn  = document.querySelector("#send");
+    const msgInput = document.querySelector("#msg");
+    const reasonWrap = document.querySelector("#reasonWrap");
+    const thinkingEl = document.querySelector("#thinking");
+
+    // ====== elder chat
+    const elderBanner = document.querySelector("#elderBanner");
+    const elog = document.querySelector("#elog");
+    const emsg = document.querySelector("#emsg");
+    const esend = document.querySelector("#esend");
+
+    // ====== helpers
+    function scrollBottom(el){ el.scrollTop = el.scrollHeight; }
+    function setThinking(v){ thinkingEl.style.display = v ? "block" : "none"; }
+    function setReason(text){
+      if (text && text.trim()){ reasonWrap.style.display = "block"; reasonWrap.textContent = text.trim(); }
+      else { reasonWrap.style.display = "none"; reasonWrap.textContent = ""; }
+    }
+    function countSamples(){
+      const n = (samplesInput.value || "").split("\n").map(s=>s.trim()).filter(Boolean).length;
+      sampleCount.textContent = `${n} line${n===1?"":"s"}`;
+    }
+    samplesInput.addEventListener("input", countSamples);
+
+    // ====== import txt
+    importBtn.onclick = () => fileInput.click();
+    fileInput.onchange = async (e) => {
+      const f = e.target.files?.[0]; if(!f) return;
+      const text = await f.text();
+      const lines = text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+      if (!lines.length) return alert("No lines detected in file.");
+      const existing = (samplesInput.value || "").trim();
+      samplesInput.value = (existing ? existing + "\n" : "") + lines.join("\n");
+      countSamples();
+    };
+
+    // ====== sync tone
+    async function onLearn(){
+      const childId = (childInput.value || "Child").trim();
+      const texts = (samplesInput.value || "").split("\n").map(s=>s.trim()).filter(Boolean);
+      const samples = texts.map(t => ({ from:"me", text:t }));
+      let facts = {};
+      try { facts = factsInput.value.trim() ? JSON.parse(factsInput.value) : {}; }
+      catch(e){ alert("Facts is not valid JSON. Please correct it and try again."); return; }
+      if (!samples.length) { alert("Please provide at least one sample line."); return; }
+
+      learnBtn.disabled = true; learnBtn.textContent = "Syncing…";
+      try{
+        const { styleGuide } = await postJSON("/style/learn", { childId, samples, facts });
+        alert("Tone synced ✓\n\n" + styleGuide);
+      }catch(err){
+        alert("Failed to sync tone:\n" + (err.message || err));
+      }finally{
+        learnBtn.disabled=false; learnBtn.textContent="Sync Tone";
+      }
+    }
+    learnBtn.onclick = onLearn;
+
+    // ====== ai chat
+    function deriveBriefReason(replyText){
+      if(!replyText) return ""; const p = replyText.trim().split(/(?<=[.!?。！？])\s+/).slice(0,2);
+      return "Reasoning (brief): " + p.join(" ");
+    }
+    function addAIBubble(text){
+      const li = addBubble(log, "ai", text);
+      if (!li) return null;
+      const tag = document.createElement("span"); tag.className = "badge ai"; tag.textContent = "AI";
+      li.appendChild(tag); return li;
+    }
+    async function onSendAI(){
+      const text = msgInput.value.trim(); if(!text) return;
+      addBubble(log, "me", text); scrollBottom(log);
+      sendBtn.disabled=true; sendBtn.textContent="Sending…";
+      setReason(""); setThinking(true);
+      try{
+        const res = await postJSON("/child/message", { text, wantBriefReason:true });
+        const reply = res?.reply || "";
+        addAIBubble(reply); scrollBottom(log);
+        const brief = res?.reason || deriveBriefReason(reply);
+        setReason(brief); msgInput.value="";
+      }catch(err){
+        addAIBubble("Error: child page chat failure — " + (err.message || err)); scrollBottom(log);
+        setReason("");
+      }finally{
+        setThinking(false); sendBtn.disabled=false; sendBtn.textContent="Send";
+      }
+    }
+    sendBtn.onclick = onSendAI;
+    msgInput.addEventListener("keydown", e => { if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); onSendAI(); }});
+
+    // ====== real chat via BroadcastChannel
+    let bc=null, channelName=null, unread=0, originalTitle=document.title, titleTimer=null;
+    function ensureChannel(){
+      const id=(childInput.value||"Child").trim(); if(!id) return;
+      const next="peer-"+id; if(channelName===next && bc) return;
+      if(bc){ bc.close(); bc=null; }
+      channelName=next; bc=new BroadcastChannel(next);
+      bc.onmessage=(ev)=>{
+        const {type, from, text}=ev.data||{};
+        if(type==="ring"){ bc.postMessage({ type:"ring-ack", from:"child" }); }
+        if(type==="msg" && from==="elder"){ addElder(text); notifyAttention(); }
+      };
+    }
+    function addElder(text){
+      const li=document.createElement("li"); li.className="bubble real"; li.textContent=text;
+      const tag=document.createElement("span"); tag.className="badge real"; tag.textContent="Elder";
+      li.appendChild(tag); elog.appendChild(li); scrollBottom(elog);
+    }
+    function addMeToElder(text){
+      const li=document.createElement("li"); li.className="bubble me"; li.textContent=text;
+      elog.appendChild(li); scrollBottom(elog);
+    }
+    function notifyAttention(){ elderBanner.style.display="block"; unread++; blinkTitle(); }
+    function clearAttention(){ elderBanner.style.display="none"; unread=0; stopBlink(); }
+    function blinkTitle(){ stopBlink(); titleTimer=setInterval(()=>{ document.title=document.title.startsWith("(●)")?originalTitle:`(● ${unread}) ${originalTitle}`; },900); }
+    function stopBlink(){ if(titleTimer){ clearInterval(titleTimer); titleTimer=null; } document.title=originalTitle; }
+
+    elderBanner.addEventListener("click", ()=>{ clearAttention(); emsg.focus(); });
+    function sendToElder(){
+      const t=emsg.value.trim(); ensureChannel(); if(!t || !bc) return;
+      addMeToElder(t); bc.postMessage({ type:"msg", from:"child", text:t }); emsg.value="";
+    }
+    esend.onclick=sendToElder;
+    emsg.addEventListener("keydown", e=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); sendToElder(); }});
+    childInput.addEventListener("change", ensureChannel);
+    childInput.addEventListener("blur", ensureChannel);
+    window.addEventListener("focus", clearAttention);
+
+    function setTab(mode){ // 'ai' | 'real'
+      const isReal = mode === "real";
+      seg.classList.toggle("real", isReal);
+      seg.classList.toggle("ai", !isReal);
+      aiPanel.style.display   = isReal ? "none" : "block";
+      realPanel.style.display = isReal ? "block" : "none";
+      if (isReal) ensureChannel();
+    }
+    seg.addEventListener("click", (e)=>{
+      const rect = seg.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      setTab(x < rect.width/2 ? "ai" : "real");
+    });
+    tabAI.addEventListener("click", e=>{ e.stopPropagation(); setTab("ai"); });
+    tabReal.addEventListener("click", e=>{ e.stopPropagation(); setTab("real"); });
+
+    // init
+    ensureChannel();
+    countSamples();
+    setTab("ai");
+  </script>
+</body>
+</html>

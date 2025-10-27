@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Elder App · Chat Like Your Child</title>
+
+  <!-- unified styles -->
+  <link rel="stylesheet" href="/css/vars.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/elder.css">
+</head>
+<body>
+  <div class="wrap">
+    <!-- header -->
+    <div class="top">
+      <div class="top-left">
+        <a class="homeBtn" href="./index.html">Home</a>
+        <h2>Elder App</h2>
+      </div>
+    </div>
+
+    <!-- segmented switch + id + save -->
+    <div class="mode">
+      <div class="seg ai" id="modeSeg" role="tablist" aria-label="Chat mode">
+        <div class="labels">
+          <div class="aiTxt"   id="tabAI"   role="tab" aria-selected="true"  aria-controls="aiChat">AI</div>
+          <div class="realTxt" id="tabReal" role="tab" aria-selected="false" aria-controls="realChat">Real</div>
+        </div>
+      </div>
+      <input id="childId" placeholder="Child ID (must match the Child App)" aria-label="Child ID" />
+      <button class="btn" id="saveId">Save ID</button>
+    </div>
+
+    <!-- notices -->
+    <div class="notice info" id="noticeAI">
+      You are chatting with <strong>AI (not your child)</strong>. For a live chat with your real child, switch to <strong>Real</strong>.
+    </div>
+    <div class="notice warn" id="noticeReal" style="display:none;">
+      You are chatting with <strong>your real child</strong>. Replies may be delayed. For quick responses, switch back to <strong>AI agent</strong>.
+    </div>
+
+    <!-- AI chat -->
+    <section class="chat" id="aiChat" aria-label="AI Chat">
+      <ul id="log" class="log" aria-live="polite"></ul>
+      <div id="reasonWrap" class="reason"></div>
+      <div id="thinking" class="thinking">Thinking…</div>
+      <div class="composer">
+        <input id="msg" placeholder="Type your message…" aria-label="Message input" />
+        <button class="sendBtn" id="send">Send</button>
+      </div>
+      <span style="color:#475569">Press Enter to send</span>
+    </section>
+
+    <!-- Real chat -->
+    <section class="chat" id="realChat" aria-label="Real Chat with Child" style="display:none;">
+      <ul id="rl" class="log" aria-live="polite"></ul>
+      <div class="composer">
+        <input id="rmsg" placeholder="Type a message to your child…" />
+        <button class="sendBtn" id="rsend">Send</button>
+      </div>
+      <span style="color:#475569" id="rstatus">Connecting… open Child App with the same Child ID.</span>
+    </section>
+  </div>
+
+  <script type="module">
+    import { postJSON } from "./js/api.js";
+    import { addBubble } from "./js/ui.js";
+
+    // refs
+    const seg = document.querySelector("#modeSeg");
+    const tabAI = document.querySelector("#tabAI");
+    const tabReal = document.querySelector("#tabReal");
+    const noticeAI = document.querySelector("#noticeAI");
+    const noticeReal = document.querySelector("#noticeReal");
+    const aiChat = document.querySelector("#aiChat");
+    const realChat = document.querySelector("#realChat");
+
+    const childInput = document.querySelector("#childId");
+    const saveIdBtn = document.querySelector("#saveId");
+
+    // AI chat
+    const log = document.querySelector("#log");
+    const sendBtn = document.querySelector("#send");
+    const msgInput = document.querySelector("#msg");
+    const reasonWrap = document.querySelector("#reasonWrap");
+    const thinkingEl = document.querySelector("#thinking");
+
+    // Real chat
+    const rl = document.querySelector("#rl");
+    const rmsg = document.querySelector("#rmsg");
+    const rsend = document.querySelector("#rsend");
+    const rstatus = document.querySelector("#rstatus");
+
+    // helpers
+    function scrollBottom(el){ el.scrollTop = el.scrollHeight; }
+    function setThinking(v){ thinkingEl.style.display = v ? "block" : "none"; }
+    function setReason(text){
+      if (text && text.trim()){ reasonWrap.style.display="block"; reasonWrap.textContent=text.trim(); }
+      else { reasonWrap.style.display="none"; reasonWrap.textContent=""; }
+    }
+    function addAI(text){
+      const li = addBubble(log, "ai", text);
+      if (!li) return null;  
+      const tag = document.createElement("span"); tag.className="badge ai"; tag.textContent="AI (not your child)";
+      li.appendChild(tag); return li;
+    }
+    function deriveBriefReason(replyText){
+      if(!replyText) return "";
+      const parts = replyText.trim().split(/(?<=[.!?。！？])\s+/).slice(0,2);
+      return "Why I replied this way (brief): " + parts.join(" ");
+    }
+
+    // AI chat logic
+    async function onSendAI(){
+      const text = msgInput.value.trim();
+      const childId = (childInput.value || "Child").trim();
+      if(!text) return;
+      setReason(""); setThinking(true);
+      addBubble(log, "me", text); scrollBottom(log);
+      sendBtn.disabled=true; sendBtn.textContent="Sending…";
+      try{
+        const res = await postJSON("/elder/message", { childId, text, wantBriefReason:true });
+        const reply = res?.reply || "";
+        addAI(reply); scrollBottom(log);
+        const brief = res?.reason || deriveBriefReason(reply);
+        setReason(brief);
+        msgInput.value="";
+      }catch(err){
+        const msg = String(err?.message || err);
+        addAI(msg.includes("No style learned")
+          ? "Tip: This Child ID has no learned tone yet. Ask your child to sync tone first."
+          : "Error: request failed — " + msg);
+        setReason(""); scrollBottom(log);
+      }finally{
+        setThinking(false); sendBtn.disabled=false; sendBtn.textContent="Send";
+      }
+    }
+    sendBtn.onclick = onSendAI;
+    msgInput.addEventListener("keydown", e => { if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); onSendAI(); }});
+
+    // Real chat via BroadcastChannel
+    let bc=null;
+    function closeBC(){ if(bc){ bc.close(); bc=null; } }
+    function openBC(){
+      const id = (childInput.value || "").trim();
+      if(!id){ alert("Please enter a Child ID first."); return false; }
+      closeBC();
+      bc = new BroadcastChannel("peer-"+id);
+      bc.onmessage = (ev)=>{
+        const {type, from, text} = ev.data || {};
+        if(type==="ring-ack") rstatus.textContent="Connected ✓";
+        if(type==="msg" && from==="child") addRealFromChild(text);
+      };
+      bc.postMessage({ type:"ring", from:"elder" });
+      rstatus.textContent="Connecting… open Child App with the same Child ID.";
+      return true;
+    }
+    function addRealFromMe(t){
+      const li=document.createElement("li"); li.className="bubble me"; li.textContent=t;
+      rl.appendChild(li); scrollBottom(rl);
+    }
+    function addRealFromChild(t){
+      const li=document.createElement("li"); li.className="bubble real"; li.textContent=t;
+      const tag=document.createElement("span"); tag.className="badge real"; tag.textContent="Real child";
+      li.appendChild(tag); rl.appendChild(li); scrollBottom(rl);
+    }
+    function sendReal(){
+      const t=rmsg.value.trim(); if(!t || !bc) return;
+      addRealFromMe(t); bc.postMessage({ type:"msg", from:"elder", text:t }); rmsg.value="";
+    }
+    rsend.onclick=sendReal;
+    rmsg.addEventListener("keydown", e=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); sendReal(); }});
+
+    // mode switch: click where -> go there
+    function setMode(mode){ // 'ai' | 'real'
+      const isReal = mode==="real";
+      seg.classList.toggle("real", isReal);
+      seg.classList.toggle("ai", !isReal);
+      aiChat.style.display = isReal ? "none" : "flex";
+      realChat.style.display = isReal ? "flex" : "none";
+      noticeAI.style.display = isReal ? "none" : "block";
+      noticeReal.style.display = isReal ? "block" : "none";
+      if(isReal) openBC(); else closeBC();
+    }
+    seg.addEventListener("click", (e)=>{
+      const rect = seg.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      setMode(x < rect.width/2 ? "ai" : "real");
+    });
+    seg.tabIndex = 0;
+    seg.addEventListener("keydown", (e)=>{
+      if(e.key==="ArrowLeft"){ e.preventDefault(); setMode("ai"); }
+      if(e.key==="ArrowRight"){ e.preventDefault(); setMode("real"); }
+      if(e.key==="Enter" || e.key===" "){ e.preventDefault(); setMode(seg.classList.contains("real") ? "ai" : "real"); }
+    });
+    tabAI.addEventListener("click", (e)=>{ e.stopPropagation(); setMode("ai"); });
+    tabReal.addEventListener("click",(e)=>{ e.stopPropagation(); setMode("real");});
+
+    // save/load id
+    saveIdBtn.onclick=()=>{
+      const v=(childInput.value||"").trim(); if(!v){ alert("Please enter a Child ID."); return; }
+      localStorage.setItem("elder.childId", v); alert("Child ID saved ✓");
+    };
+    const saved=localStorage.getItem("elder.childId"); if(saved) childInput.value=saved;
+
+    // default
+    setMode("ai");
+  </script>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>I’m Always Here for You</title>
+  <style>
+    :root{
+      --bg:#f6f8fc;
+      --card:#ffffff;
+      --bd:#d7dce4;
+      --txt:#0f172a;       /* much darker for contrast */
+      --muted:#475569;
+      --primary:#1e40af;   /* deeper blue for contrast */
+      --primaryHover:#1b3796;
+      --ring:#93c5fd;
+      --ok-bg:#ecfdf5; --ok-bd:#a7f3d0; --ok-txt:#065f46;
+      --bad-bg:#fef2f2; --bad-bd:#fecaca; --bad-txt:#7f1d1d;
+      --radius:20px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font:18px/1.7 system-ui, Segoe UI, Roboto, Helvetica, Arial;
+      color:var(--txt);
+      background:linear-gradient(135deg,#f4f7ff,#eef2ff);
+      display:flex; align-items:center; justify-content:center;
+      padding:28px;
+    }
+
+    .wrap{
+      width:100%; max-width:840px;
+      background:var(--card);
+      border:1px solid var(--bd);
+      border-radius:var(--radius);
+      padding:28px 26px 30px;
+      box-shadow:0 14px 36px rgba(15,23,42,.08);
+    }
+
+    h1{
+      margin:0 0 12px;
+      font-size:clamp(28px, 4vw, 40px);
+      letter-spacing:.2px;
+    }
+    p.lead{
+      margin:0 0 22px;
+      color:var(--muted);
+      font-size:clamp(16px, 2.6vw, 18px);
+    }
+
+    .grid{
+      display:grid; gap:16px;
+      grid-template-columns:1fr;
+    }
+    @media (min-width:700px){
+      .grid{ grid-template-columns:1fr 1fr; }
+    }
+
+    .card{
+      border:1px solid var(--bd);
+      border-radius:16px;
+      padding:18px;
+      background:#fff;
+      display:flex; flex-direction:column; gap:14px;
+      min-height:160px;
+    }
+    .title{
+      font-weight:700;
+      font-size:clamp(18px, 2.6vw, 22px);
+    }
+    .desc{
+      color:var(--muted);
+      font-size:clamp(16px, 2.4vw, 18px);
+    }
+
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center;
+      min-height:52px;
+      padding:12px 18px;
+      border-radius:12px;
+      border:1px solid var(--primary);
+      background:var(--primary);
+      color:#fff; text-decoration:none; font-weight:700;
+      font-size:18px;
+      transition:transform .06s ease, background .15s ease, box-shadow .15s ease;
+      outline: none;
+    }
+    .btn:hover{ background:var(--primaryHover) }
+    .btn:active{ transform:translateY(1px) }
+    .btn:focus-visible{
+      box-shadow:0 0 0 4px var(--ring);
+    }
+
+    .footer{
+      margin-top:22px;
+      display:flex; gap:12px; flex-wrap:wrap;
+      align-items:center; justify-content:space-between;
+      color:var(--muted); font-size:18px;
+    }
+
+    .status{
+      font-size:16px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid var(--bd);
+      background:#fff;
+    }
+    .ok{ color:var(--ok-txt); border-color:var(--ok-bd); background:var(--ok-bg) }
+    .bad{ color:var(--bad-txt); border-color:var(--bad-bd); background:var(--bad-bg) }
+
+    .kbd{
+      font:600 16px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background:#eef2ff; border:1px solid #c7d2fe; border-radius:8px;
+      padding:3px 8px;
+    }
+
+    /* Respect reduced motion */
+    @media (prefers-reduced-motion: reduce){
+      .btn{ transition:none }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>I’m Always Here for You</h1>
+    <p class="lead">Choose an app to get started.</p>
+
+    <div class="grid">
+      <div class="card">
+        <div class="title">Child App (Train Tone & Facts)</div>
+        <div class="desc">Teach your tone with a <code>childId</code>, add a facts card, then switch to the Elder App.</div>
+        <a class="btn" href="./child.html" id="toChild" aria-label="Open Child App">Open Child App</a>
+      </div>
+
+      <div class="card">
+        <div class="title">Elder App (Chat Like You)</div>
+        <div class="desc">Use the same <code>childId</code> to chat with an AI that speaks in your style.</div>
+        <a class="btn" href="./elder.html" id="toElder" aria-label="Open Elder App">Open Elder App</a>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div>Shortcuts: <span class="kbd">C</span> Child · <span class="kbd">E</span> Elder</div>
+      <div id="status" class="status">Checking server…</div>
+    </div>
+  </div>
+
+  <script>
+    // Health check (ensures you opened via the server, not file://)
+    const statusEl = document.getElementById("status");
+    const BASE = location.origin.startsWith("http") ? location.origin : "http://127.0.0.1:8787";
+
+    function setStatus(ok, msg){
+      statusEl.textContent = msg;
+      statusEl.className = "status " + (ok ? "ok" : "bad");
+    }
+
+    async function ping(){
+      try{
+        const res = await fetch(BASE + "/api/ping", { cache: "no-store" });
+        if(!res.ok) throw new Error(res.status);
+        setStatus(true, "Server connected");
+      }catch(e){
+        setStatus(false, "Server unreachable — start backend first");
+      }
+    }
+    ping();
+
+    // Keyboard shortcuts
+    document.addEventListener("keydown", (e)=>{
+      const k = e.key.toLowerCase();
+      if(k==="c") location.href="./child.html";
+      if(k==="e") location.href="./elder.html";
+    });
+  </script>
+</body>
+</html>

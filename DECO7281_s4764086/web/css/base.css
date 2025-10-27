@@ -1,0 +1,21 @@
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:linear-gradient(135deg,#f4f7ff,#eef2ff);
+  font:20px/1.85 system-ui, Segoe UI, Roboto, Helvetica, Arial; color:var(--txt);
+  display:flex; align-items:center; justify-content:center; padding:14px;
+}
+.wrap{
+  width:100%; max-width:1000px; background:var(--card);
+  border:1px solid var(--bd); border-radius:var(--radius);
+  padding:18px; box-shadow:0 14px 36px rgba(15,23,42,.08);
+}
+.top{
+  display:flex; align-items:center; justify-content:flex-start; gap:14px; margin-bottom:8px;
+}
+h2{margin:0; font-size:34px; letter-spacing:.2px}
+.homeBtn{
+  padding:10px 14px; border-radius:12px; border:2px solid var(--primary);
+  background:#fff; color:var(--primary); font-weight:900; text-decoration:none;
+  box-shadow:0 2px 8px rgba(29,78,216,.12);
+}

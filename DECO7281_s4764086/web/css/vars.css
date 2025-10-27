@@ -1,0 +1,22 @@
+:root{
+  /* brand & text */
+  --txt:#0f172a; --muted:#334155;
+
+  /* brand blue */
+  --primary:#1d4ed8; --primaryHover:#1e40af; --ring:#93c5fd;
+
+  /* surfaces & borders */
+  --bg:#f7fafc; --card:#ffffff; --bd:#cbd5e1; --radius:18px;
+
+  /* chat bubbles */
+  --me:#fff3e0;     /* elder / me */
+  --ai:#e8f5e9;     /* AI */
+  --real:#fef3c7;   /* Real child */
+
+  /* notices */
+  --info:#0b5bd3; --infobg:#eff6ff; --infobd:#bfdbfe;
+  --warn:#7c2d12; --warnbg:#fffbeb; --warnbd:#fbbf24;
+
+  /* reasoning */
+  --ok:#065f46; --okbg:#ecfdf5; --okbd:#a7f3d0;
+}
