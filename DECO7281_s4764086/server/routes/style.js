@@ -15,7 +15,6 @@ style.post("/learn", async (req, res) => {
     }
 
     const promptText = `You are a style analyzer. Given several chat samples, please extract a "tone style guide" (no more than 10 short sentences): 
-样本: 
 ${JSON.stringify(samples, null, 2)}`;
 
     console.log("[style.learn] calling generateText…");
@@ -35,3 +34,4 @@ ${JSON.stringify(samples, null, 2)}`;
     return res.status(500).send(e?.message || "Internal server error");
   }
 });
+
