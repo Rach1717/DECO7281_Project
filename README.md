@@ -19,7 +19,9 @@ http://localhost:8787/elder.html
 
 
 Example user input: 
+
 User 1: 
+
 Grandmaaa, I'm here! I missed you today! 
 It's a bit chilly outside—please wear a scarf for me, okay? 
 I just finished class! I'll video call you later—I want to see your sweet smile 
@@ -48,6 +50,7 @@ Your favorite Dengdeng loves you lots—chat again tonight!
 
 
 User 2: 
+
 Hi. Busy day. I'm fine.
 Weather dropped. Wear a jacket.
 I'll call after 8 pm. Short call.
